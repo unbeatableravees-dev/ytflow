@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output and caches
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+coverage/
+.firebase/
+*.log
+npm-debug.log*
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+service-account*.json
+firebase-adminsdk*.json
+
+# Local Python environments
+backend/venv/
+backend/venv*/
+
+# Downloaded media and runtime binaries
+backend/downloads/
+backend/bin/*.exe
+base_video.b64
+backend/test_*.cjs
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

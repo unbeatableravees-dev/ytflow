@@ -1,0 +1,17 @@
+{
+  "name": "ytflow-backend",
+  "version": "1.0.0",
+  "description": "YTFlow high-speed video and channel processing backend service",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}
