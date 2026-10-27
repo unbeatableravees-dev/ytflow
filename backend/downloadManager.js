@@ -74,14 +74,14 @@ function getDownloadedBytes(jobId) {
 class DownloadManager {
   constructor() {
     this.jobs = new Map();
-    this.concurrency = 20;
+    this.concurrency = 40;
     this.activeWorkers = 0;
     this.subscribers = new Set();
     this.isPaused = false;
   }
 
   setConcurrency(limit) {
-    this.concurrency = Math.max(6, Math.min(20, Number(limit) || 20));
+    this.concurrency = Math.max(6, Math.min(40, Number(limit) || 40));
     this.processNext();
   }
 

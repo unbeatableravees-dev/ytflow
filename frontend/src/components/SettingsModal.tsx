@@ -55,12 +55,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Controls how many videos download simultaneously during bulk channel jobs (6–20).
+              Controls simultaneous video downloads (6–40). Higher values use more bandwidth and may trigger source throttling.
             </p>
             <input
               type="range"
               min="6"
-              max="20"
+              max="40"
               step="1"
               value={concurrency}
               onChange={(e) => onConcurrencyChange(Number(e.target.value))}
@@ -68,8 +68,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             />
             <div className="flex justify-between text-[10px] font-mono text-slate-500">
               <span>6 (Minimum)</span>
-              <span>18</span>
-              <span>20 (Maximum)</span>
+              <span>20</span>
+              <span>40 (Maximum)</span>
             </div>
           </div>
 

@@ -63,7 +63,7 @@ export function App() {
     downloading: 0,
     completed: 0,
     failed: 0,
-    concurrency: 20,
+    concurrency: 40,
     isPaused: false,
     totalDownloadedMB: 0,
   });

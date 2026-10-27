@@ -14,13 +14,13 @@ export const STANDARD_FORMATS: MediaFormat[] = [
 // In-Memory Client Queue for Firebase Live Mode
 class ClientQueueManager {
   private jobs: Map<string, DownloadJob> = new Map();
-  private concurrency = 20;
+  private concurrency = 40;
   private activeWorkers = 0;
   private listeners: Array<(data: { jobs: DownloadJob[]; stats: QueueStats }) => void> = [];
   public isPaused = false;
 
   setConcurrency(limit: number) {
-    this.concurrency = Math.max(6, Math.min(20, limit));
+    this.concurrency = Math.max(6, Math.min(40, limit));
     this.processNext();
   }
 

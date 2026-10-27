@@ -31,6 +31,7 @@
 - 🔎 Inspect supported video links and YouTube channels.
 - 📚 Browse channel uploads and add selected videos to a download queue.
 - ⚡ Run multiple downloads with live progress, speed, and ETA updates.
+- 🎚️ Configure up to 40 simultaneous download jobs; actual speed depends on your network and the source.
 - ⏱️ Track elapsed download time alongside the estimated time remaining.
 - 🎞️ Download video with merged audio, or choose audio-only formats.
 - 📦 Download completed items individually or export a batch as a ZIP.
@@ -92,6 +93,7 @@ Firebase Hosting serves the static frontend only. A separately hosted backend is
 
 - **Backend unavailable:** Start the backend and confirm `http://localhost:5000/api/health` responds.
 - **DNS/network errors:** Check that the machine can resolve and reach YouTube. yt-dlp retries transient network failures and uses IPv4.
+- **Slow downloads:** Raising concurrent jobs can improve aggregate throughput when bandwidth is available, but cannot guarantee a 10× speed increase. Very high concurrency may cause throttling or HTTP 403 responses.
 - **HTTP 403 during a large download:** The downloader retries once with a freshly extracted media URL and one fragment at a time. Some private, restricted, or region-limited videos may still be unavailable.
 - **Python warning:** Ensure the backend's `venv311` environment was created with Python 3.11 or later.
 - **Audio/video merge errors:** Install FFmpeg and make sure `ffmpeg` is available on `PATH`.

@@ -142,7 +142,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({
               onChange={(e) => onConcurrencyChange(Number(e.target.value))}
               className="bg-transparent text-xs font-bold text-brand-300 focus:outline-none cursor-pointer"
             >
-              {Array.from({ length: 15 }, (_, index) => index + 6).map(count => (
+              {Array.from({ length: 35 }, (_, index) => index + 6).map(count => (
                 <option key={count} value={count} className="bg-dark-card text-white">
                   {count} videos
                 </option>
