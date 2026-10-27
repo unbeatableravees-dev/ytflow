@@ -12,6 +12,7 @@ export const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
 if (!fs.existsSync(DOWNLOADS_DIR)) {
   fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
 }
+const DISMISSED_JOB_IDS_PATH = path.join(DOWNLOADS_DIR, '.dismissed-job-ids.json');
 
 export const FFMPEG_PATH = path.join(__dirname, 'bin', 'ffmpeg.exe');
 
@@ -58,6 +59,15 @@ function sizeToBytes(value, unit) {
   return Number(value) * (powers[String(unit || 'b').toLowerCase()] || 1);
 }
 
+function setZipDownloadHeaders(res, fileName) {
+  const asciiName = fileName.replace(/[^\x20-\x7e"\\]/g, '_').replace(/["\\]/g, '_');
+  const utf8Name = encodeURIComponent(fileName).replace(/[!'()*]/g, character =>
+    `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+  );
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${asciiName}"; filename*=UTF-8''${utf8Name}`);
+}
+
 function getDownloadedBytes(jobId) {
   let total = 0;
   const files = fs.readdirSync(DOWNLOADS_DIR).filter(name => name.startsWith(`${jobId}_`));
@@ -78,6 +88,74 @@ class DownloadManager {
     this.activeWorkers = 0;
     this.subscribers = new Set();
     this.isPaused = false;
+    this.dismissedJobIds = new Set(
+      fs.existsSync(DISMISSED_JOB_IDS_PATH)
+        ? JSON.parse(fs.readFileSync(DISMISSED_JOB_IDS_PATH, 'utf8'))
+        : []
+    );
+    this.restoreCompletedDownloads();
+  }
+
+  restoreCompletedDownloads() {
+    const downloads = fs.readdirSync(DOWNLOADS_DIR);
+    const recovered = new Map();
+
+    for (const name of downloads) {
+      const match = name.match(/^(job_\d+_[a-z\d]+)_(.+)\.(mp4|mp3|m4a|txt)$/i);
+      if (!match) continue;
+
+      const [, jobId, , extension] = match;
+      const filePath = path.join(DOWNLOADS_DIR, name);
+      const group = recovered.get(jobId) || {};
+      if (extension.toLowerCase() === 'txt') {
+        group.descriptionFilePath = filePath;
+        group.descriptionFileName = name.slice(jobId.length + 1);
+      } else {
+        group.filePath = filePath;
+        group.fileName = name.slice(jobId.length + 1);
+      }
+      recovered.set(jobId, group);
+    }
+
+    for (const [id, files] of recovered) {
+      if (this.dismissedJobIds.has(id)) continue;
+      if (!files.filePath || !files.descriptionFilePath) continue;
+
+      const fileStat = fs.statSync(files.filePath);
+      const title = path.parse(files.fileName).name;
+      const ext = path.extname(files.fileName).slice(1).toLowerCase();
+      const sizeMB = Number((fileStat.size / 1000000).toFixed(1));
+      const completedAt = fileStat.mtime.toISOString();
+      const job = {
+        id,
+        videoId: '',
+        title,
+        channel: 'Previously downloaded',
+        thumbnail: '',
+        duration: 0,
+        durationFormatted: 'Unknown',
+        url: '',
+        quality: 'Unknown',
+        ext,
+        status: 'completed',
+        progress: 100,
+        speed: 'Done',
+        downloadedMB: sizeMB,
+        totalMB: sizeMB,
+        eta: '0s',
+        createdAt: completedAt,
+        startedAt: completedAt,
+        completedAt,
+        error: null,
+        fileName: files.fileName,
+        filePath: files.filePath,
+        descriptionFileName: files.descriptionFileName,
+        descriptionFilePath: files.descriptionFilePath,
+        workerActive: false
+      };
+
+      this.jobs.set(id, job);
+    }
   }
 
   setConcurrency(limit) {
@@ -131,6 +209,24 @@ class DownloadManager {
     this.broadcastUpdate();
   }
 
+  resetQueue() {
+    for (const [id, job] of this.jobs) {
+      this.dismissedJobIds.add(id);
+      if (job.process) {
+        const process = job.process;
+        job.status = 'cancelled';
+        job.process = null;
+        process.kill();
+      }
+      this.releaseWorker(job);
+    }
+
+    fs.writeFileSync(DISMISSED_JOB_IDS_PATH, JSON.stringify([...this.dismissedJobIds]));
+    this.jobs.clear();
+    this.isPaused = false;
+    this.broadcastUpdate();
+  }
+
   queueDownloads(items, defaultQuality = '1080p') {
     const createdJobs = [];
 
@@ -164,8 +260,14 @@ class DownloadManager {
         error: null,
         fileName: `${cleanTitle}.${ext}`,
         filePath: path.join(DOWNLOADS_DIR, `${jobId}_${cleanTitle}.${ext}`),
+        descriptionFileName: `${cleanTitle}.txt`,
+        descriptionFilePath: path.join(DOWNLOADS_DIR, `${jobId}_${cleanTitle}.txt`),
         workerActive: false
       };
+      Object.defineProperty(job, 'descriptionFallback', {
+        value: typeof item.description === 'string' ? item.description : '',
+        writable: true
+      });
 
       this.jobs.set(jobId, job);
       createdJobs.push(job);
@@ -225,6 +327,9 @@ class DownloadManager {
       '--no-warnings',
       '--concurrent-fragments', retryingForbidden ? '1' : '4',
       '--socket-timeout', '20',
+      '--progress-template',
+      'download:YTFlowProgress|%(progress._percent_str)s|%(progress.downloaded_bytes)s|%(progress.total_bytes)s|%(progress.total_bytes_estimate)s|%(progress._speed_str)s|%(progress._eta_str)s',
+      '--write-description',
       '--output', outputTemplate,
       '--print', 'after_move:filepath',
       '--print', 'after_move:duration=%(duration)s'
@@ -258,7 +363,7 @@ class DownloadManager {
     let actualDuration = null;
 
     const consumeLine = (line, isStdout) => {
-      const text = line.trim();
+      const text = line.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '').trim();
       if (!text) return;
       const durationMatch = isStdout && text.match(/^duration=(\d+(?:\.\d+)?)$/);
       if (durationMatch) {
@@ -266,6 +371,25 @@ class DownloadManager {
         return;
       }
       if (isStdout && path.isAbsolute(text)) reportedPath = text;
+
+      if (text.startsWith('YTFlowProgress|')) {
+        const [, percentText, downloadedText, totalText, estimateText, speed, eta] = text.split('|');
+        const percent = Number.parseFloat((percentText || '').replace(/[^\d.]/g, ''));
+        const downloadedBytes = Number(downloadedText);
+        const totalBytes = Number(totalText) > 0 ? Number(totalText) : Number(estimateText);
+        if (Number.isFinite(percent)) {
+          job.progress = Math.min(99, Math.max(0, Math.round(percent)));
+        }
+        if (Number.isFinite(totalBytes) && totalBytes > 0) {
+          job.totalMB = Number((totalBytes / 1000000).toFixed(1));
+        }
+        const observedBytes = getDownloadedBytes(job.id);
+        job.downloadedMB = Number(((observedBytes || (Number.isFinite(downloadedBytes) ? downloadedBytes : 0)) / 1000000).toFixed(1));
+        if (speed && speed !== 'NA') job.speed = speed;
+        if (eta && eta !== 'NA') job.eta = eta;
+        this.broadcastUpdate();
+        return;
+      }
 
       const progress = text.match(/\[download\]\s+(\d+(?:\.\d+)?)%\s+of\s+~?([\d.]+)\s*(B|KiB|MiB|GiB|KB|MB|GB)?(?:\s+at\s+(\S+))?(?:\s+ETA\s+(\S+))?/i);
       if (!progress) return;
@@ -346,6 +470,18 @@ class DownloadManager {
         if (path.resolve(downloadedPath) !== path.resolve(job.filePath)) {
           if (fs.existsSync(job.filePath)) fs.unlinkSync(job.filePath);
           fs.renameSync(downloadedPath, job.filePath);
+        }
+
+        const descriptionSource = fs.readdirSync(DOWNLOADS_DIR)
+          .filter(name => name.startsWith(`${job.id}_`) && name.endsWith('.description'))
+          .map(name => path.join(DOWNLOADS_DIR, name))
+          .find(candidate => fs.statSync(candidate).isFile());
+        const description = descriptionSource
+          ? fs.readFileSync(descriptionSource, 'utf8')
+          : job.descriptionFallback;
+        fs.writeFileSync(job.descriptionFilePath, description, 'utf8');
+        if (descriptionSource && path.resolve(descriptionSource) !== path.resolve(job.descriptionFilePath)) {
+          fs.unlinkSync(descriptionSource);
         }
 
         const actualSizeMB = Number((fs.statSync(job.filePath).size / 1000000).toFixed(1));
@@ -455,10 +591,12 @@ class DownloadManager {
       if (!fs.existsSync(job.filePath)) {
         throw new Error(`Completed file is missing for "${job.title}".`);
       }
+      if (!fs.existsSync(job.descriptionFilePath)) {
+        throw new Error(`Description text file is missing for "${job.title}".`);
+      }
     }
 
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="YTFlow_Batch_${Date.now()}.zip"`);
+    setZipDownloadHeaders(res, `YTFlow_Batch_${Date.now()}.zip`);
 
     const archive = archiver('zip', { zlib: { level: 4 } });
 
@@ -474,9 +612,39 @@ class DownloadManager {
     for (const job of allJobs) {
       if (job.filePath && fs.existsSync(job.filePath)) {
         archive.file(job.filePath, { name: job.fileName });
+        archive.file(job.descriptionFilePath, { name: job.descriptionFileName });
       }
     }
 
+    await archive.finalize();
+  }
+
+  async createJobZip(res, jobId) {
+    const job = this.getJob(jobId);
+    if (!job) {
+      return res.status(404).send('Download job was not found.');
+    }
+    if (job.status !== 'completed') {
+      return res.status(409).send(`This download is ${job.status}; wait until it completes before saving.`);
+    }
+    if (!fs.existsSync(job.filePath)) {
+      return res.status(404).send('The completed media file is missing from the backend.');
+    }
+    if (!fs.existsSync(job.descriptionFilePath)) {
+      return res.status(404).send('The video description text file is missing from the backend.');
+    }
+
+    const packageName = `YTFlow_${path.parse(job.fileName).name.replace(/["\r\n]/g, '_')}.zip`;
+    setZipDownloadHeaders(res, packageName);
+
+    const archive = archiver('zip', { zlib: { level: 4 } });
+    archive.on('error', error => {
+      console.error(`Archive error for "${job.title}":`, error);
+      if (!res.headersSent) res.status(500).send('Archive error');
+    });
+    archive.pipe(res);
+    archive.file(job.filePath, { name: job.fileName });
+    archive.file(job.descriptionFilePath, { name: job.descriptionFileName });
     await archive.finalize();
   }
 

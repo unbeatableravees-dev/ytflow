@@ -4,7 +4,7 @@ import {
   Sliders, FileCheck 
 } from 'lucide-react';
 import { DownloadJob, QueueStats } from '../types';
-import { triggerDirectFileDownload, downloadBatchZipArchive } from '../services/api';
+import { triggerVideoPackageDownload, downloadBatchZipArchive } from '../services/api';
 import { MediaImage } from './MediaImage';
 
 function formatElapsedTime(startedAt: string | undefined, now: number) {
@@ -25,6 +25,7 @@ interface QueueManagerProps {
   onResume: () => void;
   onRetry: () => void;
   onClear: () => void;
+  onReset: () => void;
   onCancel: (id: string) => void;
   onDelete?: (id: string) => void;
   onConcurrencyChange: (value: number) => void;
@@ -38,6 +39,7 @@ export const QueueManager: React.FC<QueueManagerProps> = ({
   onResume,
   onRetry,
   onClear,
+  onReset,
   onCancel,
   onDelete,
   onConcurrencyChange,
@@ -92,13 +94,18 @@ export const QueueManager: React.FC<QueueManagerProps> = ({
         {/* Left: Pause/Resume, Retry, Clear */}
         <div className="flex flex-wrap items-center gap-2">
           {stats.isPaused ? (
-            <button
-              onClick={onResume}
-              className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-dark-bg font-bold text-xs hover:bg-emerald-400 transition-colors shadow"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>Resume Queue</span>
-            </button>
+            <>
+              <span className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 text-xs font-semibold">
+                Queue Paused
+              </span>
+              <button
+                onClick={onResume}
+                className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-dark-bg font-bold text-xs hover:bg-emerald-400 transition-colors shadow"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Resume Queue</span>
+              </button>
+            </>
           ) : (
             <button
               onClick={onPause}
@@ -130,6 +137,16 @@ export const QueueManager: React.FC<QueueManagerProps> = ({
               <span>Clear Queue History</span>
             </button>
           )}
+
+          <button
+            onClick={onReset}
+            disabled={jobs.length === 0}
+            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-rose-500 text-white border border-rose-400/40 font-semibold text-xs hover:bg-rose-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Stop active downloads and remove all queue entries. Downloaded files are kept."
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reset Queue</span>
+          </button>
         </div>
 
         {/* Right: Concurrency Setting & 1-Click Batch ZIP */}
@@ -155,10 +172,10 @@ export const QueueManager: React.FC<QueueManagerProps> = ({
             <button
               onClick={downloadBatchZipArchive}
               className="flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold text-xs shadow-md shadow-indigo-500/20 hover:opacity-95 transition-all"
-              title="Download entire batch in 1 single ZIP archive"
+              title="Download all completed videos with their descriptions in one ZIP archive"
             >
               <FolderArchive className="w-4 h-4" />
-              <span>Download Batch as ZIP</span>
+              <span>Download Batch + Descriptions</span>
             </button>
           )}
         </div>
@@ -244,12 +261,12 @@ export const QueueManager: React.FC<QueueManagerProps> = ({
 
                     {isCompleted && (
                       <button
-                        onClick={() => triggerDirectFileDownload(job.id, job.fileName)}
+                        onClick={() => triggerVideoPackageDownload(job.id, job.title)}
                         className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-brand-500 text-dark-bg font-extrabold text-xs hover:bg-brand-400 transition-colors shadow"
-                        title="Save file to computer"
+                        title="Save video and its YouTube description as a ZIP"
                       >
                         <FileCheck className="w-3.5 h-3.5" />
-                        <span>Save File</span>
+                        <span>Save Video + Description</span>
                       </button>
                     )}
 
@@ -280,9 +297,9 @@ export const QueueManager: React.FC<QueueManagerProps> = ({
                   {isDownloading && (
                     <div className="flex flex-wrap justify-between items-center gap-x-3 text-[10px] text-slate-400 mt-1 font-mono">
                       <span>
-                        Downloading with sound at {job.speed}... · Elapsed {formatElapsedTime(job.startedAt, clockNow)} · ETA {job.eta}
+                        Downloading {job.progress}% · {job.speed} · Elapsed {formatElapsedTime(job.startedAt, clockNow)} · ETA {job.eta}
                       </span>
-                      <span className="font-bold text-brand-300">{job.progress}%</span>
+                      <span className="font-bold text-brand-300" aria-label={`Download progress ${job.progress}%`}>{job.progress}%</span>
                     </div>
                   )}
                   {isFailed && job.error && (

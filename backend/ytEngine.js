@@ -120,7 +120,7 @@ export async function getVideoInfo(url) {
         thumbnail: thumb,
         viewCount: info.view_count ? info.view_count.toLocaleString() : 'Unavailable',
         uploadDate: info.upload_date || 'Unavailable',
-        description: (info.description || '').substring(0, 300) + '...',
+        description: info.description || '',
         formats: formatsForDuration(info.duration)
       }
     };

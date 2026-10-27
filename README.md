@@ -34,6 +34,7 @@
 - 🎚️ Configure up to 40 simultaneous download jobs; actual speed depends on your network and the source.
 - ⏱️ Track elapsed download time alongside the estimated time remaining.
 - 🎞️ Download video with merged audio, or choose audio-only formats.
+- 📝 Save each video's full YouTube description as a matching `.txt` file alongside the media in a ZIP; batch ZIPs include both files for every video.
 - 📦 Download completed items individually or export a batch as a ZIP.
 - 🧹 Manage queue history and completed-download history locally.
 - 🛡️ Keep download processing on your own machine when using the local setup.
@@ -78,7 +79,7 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
-Open **http://localhost:5173**. The Vite development server proxies `/api` to the local backend at `http://localhost:5000`.
+Open **http://localhost:3000**. The Vite development server proxies `/api` to the local backend at `http://localhost:5000`.
 
 ## ⚙️ Configuration
 

@@ -23,10 +23,11 @@ import {
   resumeQueue,
   retryFailed,
   clearQueueHistory,
+  resetQueue,
   cancelJob,
   deleteQueueJob,
   updateConcurrency,
-  triggerDirectFileDownload
+  triggerVideoPackageDownload
 } from './services/api';
 import { AlertCircle, CheckCircle2, Info, X, Film, Play, History as HistoryIcon } from 'lucide-react';
 
@@ -101,8 +102,8 @@ export function App() {
           // One-shot Auto-Save trigger (prevents infinite loop/repeats)
           if (autoSave && !autoSavedIds.current.has(job.id)) {
             autoSavedIds.current.add(job.id);
-            triggerDirectFileDownload(job.id, job.fileName);
-            showToast(`Auto-saved "${job.title}"!`, 'success');
+            triggerVideoPackageDownload(job.id, job.title);
+            showToast(`Auto-saved "${job.title}" with its description!`, 'success');
           }
 
           setHistory(prev => {
@@ -184,6 +185,7 @@ export function App() {
         channel: channelData?.title || 'Roohani Alfaz',
         duration: v.duration,
         durationFormatted: v.durationFormatted,
+        description: v.description,
         quality
       }));
 
@@ -208,6 +210,7 @@ export function App() {
         channel: video.channel || channelData?.title || 'Creator',
         duration: video.duration,
         durationFormatted: video.durationFormatted,
+        description: video.description,
         quality
       }], quality);
 
@@ -224,6 +227,37 @@ export function App() {
       localStorage.removeItem('ytflow_history');
     } catch (e) {}
     showToast('Download history cleared.', 'info');
+  };
+
+  const handlePauseQueue = async () => {
+    try {
+      await pauseQueue();
+      showToast('Queue paused. Active downloads can be resumed.', 'info');
+    } catch (err: any) {
+      showToast(err.message || 'Could not pause the queue.', 'error');
+    }
+  };
+
+  const handleResumeQueue = async () => {
+    try {
+      await resumeQueue();
+      showToast('Queue resumed.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Could not resume the queue.', 'error');
+    }
+  };
+
+  const handleResetQueue = async () => {
+    if (!window.confirm('Reset the entire queue? Active and pending tasks will be removed. Downloaded video files will be kept.')) {
+      return;
+    }
+
+    try {
+      await resetQueue();
+      showToast('Queue reset. Downloaded files were kept.', 'success');
+    } catch (err: any) {
+      showToast(err.message || 'Could not reset the queue.', 'error');
+    }
   };
 
   return (
@@ -355,10 +389,11 @@ export function App() {
           <QueueManager
             jobs={jobs}
             stats={stats}
-            onPause={pauseQueue}
-            onResume={resumeQueue}
+            onPause={handlePauseQueue}
+            onResume={handleResumeQueue}
             onRetry={retryFailed}
             onClear={clearQueueHistory}
+            onReset={handleResetQueue}
             onCancel={cancelJob}
             onDelete={deleteQueueJob}
             onConcurrencyChange={updateConcurrency}
@@ -420,10 +455,11 @@ export function App() {
                       </div>
 
                       <button
-                        onClick={() => triggerDirectFileDownload(item.id, `${item.title.replace(/[/\\?%*:|"<>]/g, '_')}.${item.format.toLowerCase()}`)}
+                        onClick={() => triggerVideoPackageDownload(item.id, item.title)}
                         className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-brand-300 font-semibold text-xs border border-slate-700 flex-shrink-0 transition-colors"
+                        title="Re-download the video with its description text file"
                       >
-                        Re-Save
+                        Re-Save + Description
                       </button>
                     </div>
                   ))}

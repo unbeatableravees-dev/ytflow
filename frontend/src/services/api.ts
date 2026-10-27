@@ -61,6 +61,7 @@ export async function queueDownloads(
     channel?: string;
     duration?: number;
     durationFormatted?: string;
+    description?: string;
     quality?: string;
   }>,
   quality = '1080p'
@@ -100,12 +101,26 @@ export async function clearQueueHistory(): Promise<void> {
   await requestJson('/download/clear', { method: 'POST' });
 }
 
+export async function resetQueue(): Promise<void> {
+  await requestJson('/download/reset', { method: 'POST' });
+}
+
 export async function cancelJob(id: string): Promise<void> {
   await requestJson(`/download/cancel/${encodeURIComponent(id)}`, { method: 'POST' });
 }
 
 export async function deleteQueueJob(id: string): Promise<void> {
   await requestJson(`/download/delete/${encodeURIComponent(id)}`, { method: 'POST' });
+}
+
+export function triggerVideoPackageDownload(jobId: string, title: string) {
+  const link = document.createElement('a');
+  const safeTitle = title.replace(/[/\\?%*:|"<>]/g, '_').slice(0, 80) || 'video';
+  link.href = `${API_BASE}/download/package/${encodeURIComponent(jobId)}`;
+  link.download = `YTFlow_${safeTitle}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 export function triggerDirectFileDownload(jobId: string, fileName: string) {
@@ -128,6 +143,7 @@ export function getMediaStreamUrl(id: string): string {
 export function downloadBatchZipArchive() {
   const link = document.createElement('a');
   link.href = `${API_BASE}/download/batch-zip`;
+  link.download = `YTFlow_Batch_${Date.now()}.zip`;
   document.body.appendChild(link);
   link.click();
   link.remove();

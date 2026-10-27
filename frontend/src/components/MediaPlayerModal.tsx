@@ -1,6 +1,6 @@
 import React from 'react';
 import { X, Play, Download, Volume2, ShieldCheck, Sparkles, ExternalLink } from 'lucide-react';
-import { getMediaStreamUrl, triggerDirectFileDownload } from '../services/api';
+import { getMediaStreamUrl, triggerVideoPackageDownload } from '../services/api';
 
 interface MediaPlayerModalProps {
   isOpen: boolean;
@@ -98,14 +98,14 @@ export const MediaPlayerModal: React.FC<MediaPlayerModalProps> = ({
                 if (onDownloadVideo) {
                   onDownloadVideo();
                 } else {
-                  triggerDirectFileDownload(media.id, `${media.title.replace(/[/\\?%*:|"<>]/g, '_')}.mp4`);
+                  triggerVideoPackageDownload(media.id, media.title);
                 }
               }}
               className="flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-500 via-cyan-400 to-indigo-500 text-dark-bg font-extrabold text-xs shadow-lg shadow-brand-500/25 hover:opacity-95 transition-all"
-              title="Download Full HD Video with Sound"
+              title="Download the video and its YouTube description in a ZIP file"
             >
               <Download className="w-4 h-4" />
-              <span>Video (MP4 • {media.durationFormatted || 'HD'})</span>
+              <span>Video + Description (ZIP)</span>
             </button>
 
             {/* Download Audio (MP3 320k) */}
@@ -114,14 +114,14 @@ export const MediaPlayerModal: React.FC<MediaPlayerModalProps> = ({
                 if (onDownloadAudio) {
                   onDownloadAudio();
                 } else {
-                  triggerDirectFileDownload(media.id, `${media.title.replace(/[/\\?%*:|"<>]/g, '_')}.mp3`);
+                  triggerVideoPackageDownload(media.id, media.title);
                 }
               }}
               className="flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-lg shadow-purple-600/25 transition-all"
-              title="Download High Quality MP3 Audio Only (320kbps)"
+              title="Download audio and its YouTube description in a ZIP file"
             >
               <Volume2 className="w-4 h-4" />
-              <span>Audio (MP3 • {media.durationFormatted || '320k'})</span>
+              <span>Audio + Description (ZIP)</span>
             </button>
 
             <button

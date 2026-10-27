@@ -121,6 +121,11 @@ app.post('/api/download/clear', (req, res) => {
   res.json({ success: true, message: 'Cleared finished queue history' });
 });
 
+app.post('/api/download/reset', (req, res) => {
+  downloadManager.resetQueue();
+  res.json({ success: true, message: 'Cleared all queue entries; downloaded files were kept.' });
+});
+
 app.post('/api/download/cancel/:id', (req, res) => {
   downloadManager.cancelJob(req.params.id);
   res.json({ success: true, message: `Cancelled job ${req.params.id}` });
@@ -151,6 +156,17 @@ app.get('/api/download/file/:id', (req, res) => {
       res.status(500).send('File transfer error');
     }
   });
+});
+
+app.get('/api/download/package/:id', async (req, res) => {
+  try {
+    await downloadManager.createJobZip(res, req.params.id);
+  } catch (error) {
+    console.error('Video package error:', error);
+    if (!res.headersSent) {
+      res.status(500).send('Error generating the video and description package.');
+    }
+  }
 });
 
 /**
@@ -215,7 +231,8 @@ app.get('/api/media/stream/:id', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`=========================================`);
-  console.log(`🚀 YTFlow Backend v2.0 running on port ${PORT}`);
-  console.log(`✨ Zero Ads • High Speed • Play Online Active`);
+  console.log(`🚀 Backend API listening at http://localhost:${PORT}`);
+  console.log(`🌐 Frontend UI: http://localhost:3000`);
+  console.log(`✨ YTFlow API v2.0 • Zero Ads • Play Online Active`);
   console.log(`=========================================`);
 });
